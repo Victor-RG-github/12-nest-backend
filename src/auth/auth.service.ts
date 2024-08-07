@@ -14,7 +14,7 @@ import { SignInDto } from './dto/sign-in.dto';
 import { JwtService } from '@nestjs/jwt';
 import { JWTPayload } from './interfaces/jwt-payload.interface';
 import { SignInResponse } from './interfaces/sign-in-response.interface';
-import { RegisterDTO } from './dto/register.dto';
+import { RegisterUserDTO } from './dto/register-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -45,13 +45,15 @@ export class AuthService {
     }
   }
 
-  async register(registerDTO: RegisterDTO): Promise<SignInResponse> {
-    const { email } = await this.create({ ...registerDTO });
-    return this.signIn({ email, password: registerDTO.password });
+  async register(registerDTO: RegisterUserDTO): Promise<SignInResponse> {
+    const user = await this.create(registerDTO);
+    return {
+      user: user,
+      token: await this.getJWTToken({ id: user._id }),
+    };
   }
 
   async signIn(signInDto: SignInDto): Promise<SignInResponse> {
-    console.log(signInDto);
     const { email, password } = signInDto;
     const user = await this.userModel.findOne({ email });
 
@@ -62,14 +64,14 @@ export class AuthService {
     }
 
     const { password: _, ...validUser } = user.toJSON();
-    const token = await this.getJWTToken({ id: user.id });
+    const token = this.getJWTToken({ id: user.id });
 
     //return { ...validUser, token }; //Otra forma
     return { user: validUser, token };
   }
 
-  findAll() {
-    return `This action returns all auth`;
+  findAll(): Promise<User[]> {
+    return this.userModel.find();
   }
 
   findOne(id: number) {
@@ -84,10 +86,17 @@ export class AuthService {
     return `This action removes a #${id} auth`;
   }
 
-  private getJWTToken(payload: JWTPayload) {
-    return this.jwtService.signAsync(payload, {
+  getJWTToken(payload: JWTPayload) {
+    const token = this.jwtService.sign(payload, {
       secret: process.env.JWT_SEED,
-      expiresIn: '60s',
+      expiresIn: '600s',
     });
+    return token;
+  }
+
+  async findUserbyId(id: string): Promise<User> {
+    const user = await this.userModel.findById(id);
+    const { password, ...rest } = user.toJSON();
+    return rest;
   }
 }

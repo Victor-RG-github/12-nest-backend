@@ -6,12 +6,17 @@ import {
   Patch,
   Param,
   Delete,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { SignInDto } from './dto/sign-in.dto';
-import { RegisterDTO } from './dto/register.dto';
+import { RegisterUserDTO } from './dto/register-user.dto';
+import { AuthGuard } from './guards/auth/auth.guard';
+import { User } from './entities/user.entity';
+import { SignInResponse } from './interfaces/sign-in-response.interface';
 
 @Controller('auth')
 export class AuthController {
@@ -28,12 +33,23 @@ export class AuthController {
   }
 
   @Post('/register')
-  register(@Body() registerDTO: RegisterDTO) {
+  register(@Body() registerDTO: RegisterUserDTO) {
     return this.authService.register(registerDTO);
   }
 
+  @Get('/check-token')
+  @UseGuards(AuthGuard)
+  checkToken(@Request() req: Request): SignInResponse {
+    const user = req['user'] as User;
+    return {
+      user,
+      token: this.authService.getJWTToken({ id: user._id }),
+    };
+  }
+
   @Get()
-  findAll() {
+  @UseGuards(AuthGuard)
+  findAll(@Request() request: Request) {
     return this.authService.findAll();
   }
 
